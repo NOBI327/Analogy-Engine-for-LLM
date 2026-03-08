@@ -1,0 +1,9 @@
+[project]
+name = "analogy-engine"
+version = "0.1.0"
+description = "Gentner's Structure-Mapping Theory as an LLM pipeline"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=src --cov-report=term-missing -q"

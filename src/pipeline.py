@@ -1,0 +1,94 @@
+"""メインパイプライン — End-to-End実行"""
+
+from __future__ import annotations
+
+import json
+
+from src.clients.llm_client import LLMClient
+from src.clients.embedding_client import EmbeddingClient
+from src.idea_bank import IdeaBank
+from src.steps.step1_extract import extract_structure
+from src.steps.step2_search import search_near, search_far
+from src.steps.step3_sme import rank_analogies
+from src.steps.step4_infer import generate_all_inferences
+from src.steps.step5_plan import cross_plan
+
+
+def run_pipeline(
+    challenge: str,
+    llm: LLMClient,
+    embedder: EmbeddingClient,
+    verbose: bool = False,
+) -> dict:
+    """パイプライン全体を実行
+
+    Args:
+        challenge: 課題の自然言語記述
+        llm: LLMClient（DI）
+        embedder: EmbeddingClient（DI）
+        verbose: 中間結果を表示するか
+
+    Returns:
+        {
+            "proposal": Proposal,
+            "idea_bank": IdeaBank（トレーサビリティ用）,
+            "steps": {各ステップの中間結果}
+        }
+    """
+    def log(step: str, msg: str):
+        if verbose:
+            print(f"\n{'='*60}\n[{step}] {msg}\n{'='*60}")
+
+    # Step 1: 構造抽出
+    log("Step 1", "構造抽出")
+    structure = extract_structure(challenge, llm)
+    if verbose:
+        print(json.dumps(structure, ensure_ascii=False, indent=2))
+
+    # Step 2: 類似構造探索（近縁5 + 遠方5）
+    log("Step 2", "類似構造探索")
+    near = search_near(structure, llm)
+    far = search_far(structure, llm)
+    candidates = near + far
+    if verbose:
+        domains = [c.get("domain", "?") for c in candidates]
+        print(f"  近縁: {domains[:5]}")
+        print(f"  遠方: {domains[5:]}")
+
+    # Step 3: Semantic SME
+    log("Step 3", f"Semantic SME（{len(candidates)}候補をスコアリング）")
+    ranked = rank_analogies(structure, candidates, embedder)
+    if verbose:
+        for i, r in enumerate(ranked):
+            print(f"  Rank {i+1}: {r['source']['domain']} (score: {r['score']:.3f})")
+
+    # Step 4: 候補推論生成
+    log("Step 4", f"候補推論生成（{len(ranked)}領域）")
+    all_inferences = generate_all_inferences(structure, ranked, llm)
+
+    # アイデアバンクに格納（出自剥離）
+    bank = IdeaBank()
+    for domain, inferences in all_inferences:
+        bank.add(inferences, origin_domain=domain)
+        if verbose:
+            print(f"  {domain}: {len(inferences)}件のアイデア")
+
+    log("アイデアバンク", f"合計 {len(bank)} 件（出自剥離済み）")
+
+    # Step 5: クロス立案
+    log("Step 5", "クロス立案（出自を忘れて実効性のみで評価）")
+    ideas_stripped = bank.get_ideas_stripped()
+    proposal = cross_plan(challenge, ideas_stripped, llm)
+    if verbose:
+        print(json.dumps(proposal, ensure_ascii=False, indent=2))
+
+    return {
+        "proposal": proposal,
+        "idea_bank": bank,
+        "steps": {
+            "structure": structure,
+            "candidates": candidates,
+            "ranked": ranked,
+            "inferences": all_inferences,
+        },
+    }

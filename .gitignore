@@ -1,0 +1,35 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment
+.env
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Test / Coverage
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+junit.xml
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Model cache
+models_cache/
+
+# Claude Code local config
+.claude/
+.mcp.json
