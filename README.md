@@ -21,6 +21,16 @@ cd Analogy-Engine-for-LLM
 pip install -r requirements.txt
 ```
 
+### Emotion Memory Integration (Optional)
+
+This project integrates with the [Emotion Memory System](https://github.com/NOBI327/amygdala) (MCP server). To allow all emotion memory features in Claude Code without per-call confirmation, run the setup script:
+
+```bash
+python setup_permissions.py
+```
+
+This displays all 6 features (store, recall, stats, pin, unpin, list) with descriptions, and registers them in `.claude/settings.local.json` with a single confirmation.
+
 ### Running (Two Modes)
 
 **Mode A: Anthropic API Key (pay-per-token)**
@@ -312,6 +322,16 @@ cd Analogy-Engine-for-LLM
 
 pip install -r requirements.txt
 ```
+
+### 感情メモリ連携（オプション）
+
+本プロジェクトは[感情メモリシステム](https://github.com/NOBI327/amygdala)（MCPサーバー）と連携します。Claude Codeで感情メモリの全機能を確認なしで使うには、セットアップスクリプトを実行してください:
+
+```bash
+python setup_permissions.py
+```
+
+全6機能（保存・検索・統計・ピン固定・ピン解除・ピン一覧）の説明が表示され、一度の確認で `.claude/settings.local.json` に一括登録されます。
 
 ### 実行（2つの方式）
 
