@@ -22,9 +22,10 @@ def _score_pair(
     target_texts: list[str],
     embedder: EmbeddingClient,
 ) -> tuple[float, list[dict]]:
-    """ベースとターゲットの関係テキスト間のマッチングスコアを計算
+    """ベースとターゲットの関係テキスト間の排他的マッチングスコアを計算
 
-    現実装: Greedy Matching（1対多）。Phase 2でハンガリアン法に置換予定。
+    ハンガリアン法（scipy.optimize.linear_sum_assignment）で
+    全体最適の1対1マッチングを解く。Gentnerの構造写像理論に準拠。
     """
     if not base_texts or not target_texts:
         return 0.0, []
@@ -33,24 +34,28 @@ def _score_pair(
     target_vecs = embedder.encode(target_texts)
 
     import numpy as np
+    from scipy.optimize import linear_sum_assignment
 
     # コサイン類似度行列
     norms_b = np.linalg.norm(base_vecs, axis=1, keepdims=True)
     norms_t = np.linalg.norm(target_vecs, axis=1, keepdims=True)
     sim_matrix = (base_vecs @ target_vecs.T) / (norms_b @ norms_t.T + 1e-8)
 
+    # ハンガリアン法: コスト行列 = 1 - 類似度（最小化問題に変換）
+    cost_matrix = 1.0 - sim_matrix
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
     matched = []
     total_score = 0.0
-    for i, base_text in enumerate(base_texts):
-        best_j = int(np.argmax(sim_matrix[i]))
-        best_score = float(sim_matrix[i, best_j])
-        if best_score >= SME_SCORE_THRESHOLD:
+    for i, j in zip(row_ind, col_ind):
+        score = float(sim_matrix[i, j])
+        if score >= SME_SCORE_THRESHOLD:
             matched.append({
-                "base": base_text,
-                "target": target_texts[best_j],
-                "score": best_score,
+                "base": base_texts[i],
+                "target": target_texts[j],
+                "score": score,
             })
-            total_score += best_score
+            total_score += score
 
     avg_score = total_score / len(base_texts) if base_texts else 0.0
     return avg_score, matched
