@@ -17,34 +17,43 @@ import subprocess
 class ClaudeCodeClient:
     """claude CLIの薄いラッパー。Maxプラン定額で使う"""
 
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, timeout: int = 300):
         self.model = model  # None = CLIデフォルト（Maxプランのモデル）
+        self.timeout = timeout
 
     def ask(self, prompt: str, system: str = "") -> str:
         """テキスト応答を返す"""
         full_prompt = f"{system}\n\n{prompt}" if system else prompt
 
-        cmd = ["claude", "-p", full_prompt, "--output-format", "text"]
+        cmd = ["claude", "-p", full_prompt, "--output-format", "text", "--max-turns", "1"]
         if self.model:
             cmd.extend(["--model", self.model])
 
         env = os.environ.copy()
         env.pop("CLAUDECODE", None)  # ネスト制限を回避
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=120,
-            env=env,
-        )
+        print(f"  [claude CLI] リクエスト送信中...", flush=True)
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=self.timeout,
+                env=env,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(
+                f"claude CLI がタイムアウトしました（{self.timeout}秒）。"
+                "ネットワーク状況を確認するか、再実行してください。"
+            )
 
         if result.returncode != 0:
             raise RuntimeError(
                 f"claude CLI failed (exit {result.returncode}): {result.stderr}"
             )
 
+        print(f"  [claude CLI] 応答受信完了", flush=True)
         return result.stdout.strip()
 
     def ask_json(self, prompt: str, system: str = "") -> dict | list:

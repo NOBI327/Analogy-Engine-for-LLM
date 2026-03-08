@@ -55,11 +55,15 @@ def generate_all_inferences(
     base: Structure,
     ranked_analogies: list[ScoredAnalogy],
     llm: LLMClient,
+    verbose: bool = False,
 ) -> list[tuple[str, list[CandidateInference]]]:
     """全アナロジーから候補推論を生成。(domain, inferences)のリストを返す"""
     results = []
-    for analogy in ranked_analogies:
+    total = len(ranked_analogies)
+    for i, analogy in enumerate(ranked_analogies, 1):
         domain = analogy["source"]["domain"]
+        if verbose:
+            print(f"  [{i}/{total}] {domain} から推論生成中...", flush=True)
         inferences = generate_inferences(base, analogy, llm)
         results.append((domain, inferences))
     return results

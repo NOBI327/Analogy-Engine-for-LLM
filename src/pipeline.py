@@ -41,13 +41,19 @@ def run_pipeline(
 
     # Step 1: 構造抽出
     log("Step 1", "構造抽出")
+    if verbose:
+        print("  構造抽出中...")
     structure = extract_structure(challenge, llm)
     if verbose:
         print(json.dumps(structure, ensure_ascii=False, indent=2))
 
     # Step 2: 類似構造探索（近縁5 + 遠方5）
     log("Step 2", "類似構造探索")
+    if verbose:
+        print("  近縁探索中...")
     near = search_near(structure, llm)
+    if verbose:
+        print("  遠方探索中...")
     far = search_far(structure, llm)
     candidates = near + far
     if verbose:
@@ -64,19 +70,21 @@ def run_pipeline(
 
     # Step 4: 候補推論生成
     log("Step 4", f"候補推論生成（{len(ranked)}領域）")
-    all_inferences = generate_all_inferences(structure, ranked, llm)
+    all_inferences = generate_all_inferences(structure, ranked, llm, verbose=verbose)
 
     # アイデアバンクに格納（出自剥離）
     bank = IdeaBank()
     for domain, inferences in all_inferences:
         bank.add(inferences, origin_domain=domain)
         if verbose:
-            print(f"  {domain}: {len(inferences)}件のアイデア")
+            print(f"  → {domain}: {len(inferences)}件のアイデア")
 
     log("アイデアバンク", f"合計 {len(bank)} 件（出自剥離済み）")
 
     # Step 5: クロス立案
     log("Step 5", "クロス立案（出自を忘れて実効性のみで評価）")
+    if verbose:
+        print("  最終提案を構成中...")
     ideas_stripped = bank.get_ideas_stripped()
     proposal = cross_plan(challenge, ideas_stripped, llm)
     if verbose:
