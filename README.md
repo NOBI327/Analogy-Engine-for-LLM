@@ -17,12 +17,27 @@ Analogy Engine implements cognitive scientist Gentner's Structure-Mapping Theory
 
 ## Getting Started
 
+### Prerequisites
+
+- **Python 3.12** (3.13+ is not yet supported by PyTorch)
+
 ### Setup
 
 ```bash
 git clone https://github.com/NOBI327/Analogy-Engine-for-LLM.git
 cd Analogy-Engine-for-LLM
 
+# Create and activate virtual environment
+python3.12 -m venv .venv
+# Linux/macOS
+source .venv/bin/activate
+# Windows
+.venv\Scripts\activate
+
+# Install PyTorch CPU version (lighter, recommended unless you need GPU)
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining dependencies
 pip install -r requirements.txt
 ```
 
