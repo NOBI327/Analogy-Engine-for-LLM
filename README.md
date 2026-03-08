@@ -4,7 +4,7 @@
 
 [![日本語](https://img.shields.io/badge/lang-ja-blue)](README_ja.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-33%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-43%20passed-brightgreen)]()
 
 ---
 
@@ -85,6 +85,16 @@ python run.py --history 3        # Show details of run ID 3
 
 All pipeline results are automatically saved to SQLite (`data/runs.db`).
 
+### Rating Results & Viewing Insights
+
+```bash
+python run.py --rate 1 5 "Organ transplant analogy was spot-on"
+python run.py --rate 2 2 "Surface-level similarity dominated"
+python run.py --insights         # Show feedback statistics by domain
+```
+
+Feedback data accumulates to reveal which source domains consistently produce useful analogies.
+
 ---
 
 ## What Happens — Pipeline Flow
@@ -98,10 +108,10 @@ Your problem (natural language)
 [Step 1] Structure Extraction ——— Decompose causal/dependency relations
     |
     v
-[Step 2] Similar Structure Search ——— Find 5 near-field + 5 far-field analogues
+[Step 2] Similar Structure Search ——— Find 1 near-field + 4 far-field analogues (configurable)
     |
     v
-[Step 3] Semantic SME ——— Score and rank by structural similarity
+[Step 3] Semantic SME ——— Score by text similarity + graph structure similarity (GNN)
     |
     v
 [Step 4] Candidate Inference ——— Transfer principles from each domain into ideas
@@ -200,7 +210,7 @@ python run.py "We want to offer DX solutions to small manufacturers in rural are
 }
 
 ============================================================
-[Step 3] Semantic SME (scoring 10 candidates)
+[Step 3] Semantic SME (scoring 5 candidates)
 ============================================================
   Rank 1: Organ Transplant Rejection (score: 0.847)
   Rank 2: Invasive Species Introduction (score: 0.793)
@@ -239,13 +249,14 @@ Traceability (source domain of each idea)
 
 ```
 .
-├── run.py                          # Entry point (--history for past results)
+├── run.py                          # Entry point (--history, --rate, --insights)
 ├── src/
 │   ├── config.py                   # Settings (env vars, thresholds)
 │   ├── models.py                   # Data structures (TypedDict)
 │   ├── pipeline.py                 # Pipeline orchestration
-│   ├── db.py                       # SQLite persistence (thin DAO)
+│   ├── db.py                       # SQLite persistence (thin DAO + feedback)
 │   ├── idea_bank.py                # Idea Bank (origin stripping)
+│   ├── graph_embedding.py          # GNN graph-level structural embeddings
 │   ├── clients/
 │   │   ├── llm_client.py           # Claude API client (pay-per-token)
 │   │   ├── claude_code_client.py   # Claude Code CLI client (Max plan flat-rate)
@@ -253,10 +264,10 @@ Traceability (source domain of each idea)
 │   └── steps/
 │       ├── step1_extract.py        # Structure Extraction
 │       ├── step2_search.py         # Similar Structure Search (near + far)
-│       ├── step3_sme.py            # Semantic SME (scoring)
+│       ├── step3_sme.py            # Semantic SME (text + graph composite scoring)
 │       ├── step4_infer.py          # Candidate Inference Generation
 │       └── step5_plan.py           # Cross-Planning
-├── tests/                          # 26 tests, 96% coverage
+├── tests/                          # 43 tests
 ├── docs/
 │   └── analogy_engine_proposal.md  # Design philosophy & theoretical background
 ├── requirements.txt
@@ -270,8 +281,9 @@ Traceability (source domain of each idea)
 | Component | Technology | Role |
 |---|---|---|
 | LLM | Claude API / Claude Code CLI | Structure extraction, search, inference, planning |
-| Embeddings | sentence-transformers (paraphrase-multilingual-MiniLM-L12-v2) | Structural matching in Semantic SME |
-| Persistence | SQLite (WAL mode) | Auto-save all pipeline results for review and feedback loops |
+| Embeddings | sentence-transformers (paraphrase-multilingual-MiniLM-L12-v2) | Relation-level matching in Semantic SME |
+| Graph | PyTorch Geometric (GCN) | Graph-level structural similarity via fixed-weight GNN |
+| Persistence | SQLite (WAL mode) | Auto-save pipeline results + feedback for learning loops |
 | Testing | pytest + DI (Dependency Injection) | Tests run without any external API calls |
 
 ---
@@ -288,7 +300,7 @@ Two core principles:
 What makes this engine different from standard LLM prompting:
 
 - **Actively searches far-field domains, not just near-field** (Step 2 far search)
-- **Ranks by structural similarity, not semantic similarity** (Step 3 Semantic SME)
+- **Ranks by structural similarity using text embeddings + GNN graph embeddings** (Step 3 Semantic SME)
 - **Intentionally strips analogy origins before evaluation** (Idea Bank → Step 5)
 
 For the full design philosophy, see [`docs/analogy_engine_proposal.md`](docs/analogy_engine_proposal.md).
@@ -312,8 +324,8 @@ DI (Dependency Injection) design means all tests run without connecting to Claud
 ## Roadmap
 
 - **Phase 1** (done): End-to-end pipeline construction and validation
-- **Phase 2** (in progress): Hungarian algorithm for exclusive matching (done), SQLite persistence (done), GNN-based structural similarity, A/B testing, feedback loops
-- **Phase 3**: Integration with emotion memory system, external publication
+- **Phase 2** (done): Hungarian algorithm for exclusive matching, SQLite persistence, GNN graph embeddings for structural similarity, feedback loop (rate & insights)
+- **Phase 3**: Integration with emotion memory system, feedback-driven search optimization, external publication
 
 ---
 

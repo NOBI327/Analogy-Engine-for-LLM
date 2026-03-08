@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import init_db, save_run, load_runs, load_run
+from src.db import init_db, save_run, load_runs, load_run, save_feedback, load_feedback_summary, load_top_domains
 from src.idea_bank import IdeaBank
 
 
@@ -160,3 +160,56 @@ class TestSaveAndLoad:
             save_run(sample_result, f"課題{i}", db_path)
         runs = load_runs(limit=3, db_path=db_path)
         assert len(runs) == 3
+
+
+class TestFeedback:
+    def test_save_feedback(self, db_path, sample_result):
+        run_id = save_run(sample_result, "課題A", db_path)
+        fb_id = save_feedback(run_id, 4, "良いアナロジーだった", db_path)
+        assert isinstance(fb_id, int)
+        assert fb_id >= 1
+
+    def test_save_feedback_invalid_score(self, db_path, sample_result):
+        run_id = save_run(sample_result, "課題A", db_path)
+        with pytest.raises(ValueError, match="score must be between"):
+            save_feedback(run_id, 6, db_path=db_path)
+        with pytest.raises(ValueError, match="score must be between"):
+            save_feedback(run_id, 0, db_path=db_path)
+
+    def test_save_feedback_nonexistent_run(self, db_path):
+        with pytest.raises(ValueError, match="does not exist"):
+            save_feedback(999, 3, db_path=db_path)
+
+    def test_feedback_summary_empty(self, db_path):
+        summary = load_feedback_summary(db_path)
+        assert summary["total_feedback"] == 0
+        assert summary["avg_score"] is None
+
+    def test_feedback_summary(self, db_path, sample_result):
+        r1 = save_run(sample_result, "課題A", db_path)
+        r2 = save_run(sample_result, "課題B", db_path)
+        save_feedback(r1, 5, db_path=db_path)
+        save_feedback(r2, 3, db_path=db_path)
+
+        summary = load_feedback_summary(db_path)
+        assert summary["total_feedback"] == 2
+        assert summary["avg_score"] == 4.0
+        assert summary["score_distribution"] == {3: 1, 5: 1}
+        assert len(summary["domain_stats"]) > 0
+
+    def test_load_top_domains(self, db_path, sample_result):
+        r1 = save_run(sample_result, "課題A", db_path)
+        save_feedback(r1, 5, db_path=db_path)
+
+        top = load_top_domains(min_score=4.0, db_path=db_path)
+        assert isinstance(top, list)
+        assert len(top) > 0
+        # sample_resultには臓器移植と森林生態系のドメインがある
+        assert any(d in top for d in ["臓器移植", "森林生態系"])
+
+    def test_load_top_domains_filters_low_scores(self, db_path, sample_result):
+        r1 = save_run(sample_result, "課題A", db_path)
+        save_feedback(r1, 2, db_path=db_path)
+
+        top = load_top_domains(min_score=4.0, db_path=db_path)
+        assert top == []

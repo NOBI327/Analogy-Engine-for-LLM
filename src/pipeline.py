@@ -46,8 +46,9 @@ def run_pipeline(
     if verbose:
         print(json.dumps(structure, ensure_ascii=False, indent=2))
 
-    # Step 2: 類似構造探索（近縁5 + 遠方5）
-    log("Step 2", "類似構造探索")
+    # Step 2: 類似構造探索
+    from src.config import NEAR_COUNT, FAR_COUNT
+    log("Step 2", f"類似構造探索（近縁{NEAR_COUNT} + 遠方{FAR_COUNT}）")
     if verbose:
         print("  近縁探索中...")
     near = search_near(structure, llm)
@@ -56,9 +57,10 @@ def run_pipeline(
     far = search_far(structure, llm)
     candidates = near + far
     if verbose:
-        domains = [c.get("domain", "?") for c in candidates]
-        print(f"  近縁: {domains[:5]}")
-        print(f"  遠方: {domains[5:]}")
+        near_domains = [c.get("domain", "?") for c in near]
+        far_domains = [c.get("domain", "?") for c in far]
+        print(f"  近縁: {near_domains}")
+        print(f"  遠方: {far_domains}")
 
     # Step 3: Semantic SME
     log("Step 3", f"Semantic SME（{len(candidates)}候補をスコアリング）")

@@ -1,4 +1,8 @@
-"""Step 3: Semantic SME — sentence-transformersベースの構造マッチング・ランキング"""
+"""Step 3: Semantic SME — テキスト埋め込み + グラフ構造埋め込みの複合ランキング
+
+テキスト: 関係テキストの埋め込み × ハンガリアン法（関係レベルの類似度）
+グラフ:   GCN でグラフ全体の構造的特徴を埋め込み（接続パターンの類似度）
+"""
 
 from __future__ import annotations
 
@@ -7,7 +11,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from src.clients.embedding_client import EmbeddingClient
 from src.models import Structure, ScoredAnalogy
-from src.config import SME_SCORE_THRESHOLD
+from src.config import SME_SCORE_THRESHOLD, GRAPH_WEIGHT
 
 
 def _relations_to_texts(structure: Structure) -> list[str]:
@@ -68,18 +72,37 @@ def rank_analogies(
     base: Structure,
     candidates: list[Structure],
     embedder: EmbeddingClient,
+    graph_weight: float | None = None,
 ) -> list[ScoredAnalogy]:
-    """全候補をスコアリングしてランキング順に返す"""
+    """全候補をスコアリングしてランキング順に返す
+
+    複合スコア = (1 - graph_weight) × テキストスコア + graph_weight × グラフスコア
+    graph_weight=0 でテキストのみ（従来動作）。
+    """
+    if graph_weight is None:
+        graph_weight = GRAPH_WEIGHT
+
     base_texts = _relations_to_texts(base)
     results: list[ScoredAnalogy] = []
 
-    for candidate in candidates:
+    # グラフ類似度を一括計算（weight > 0 の場合のみ）
+    graph_scores: list[float] = []
+    if graph_weight > 0:
+        from src.graph_embedding import graph_similarity
+        graph_scores = [
+            graph_similarity(base, cand, embedder) for cand in candidates
+        ]
+    else:
+        graph_scores = [0.0] * len(candidates)
+
+    for i, candidate in enumerate(candidates):
         target_texts = _relations_to_texts(candidate)
-        score, matched = _score_pair(base_texts, target_texts, embedder)
+        text_score, matched = _score_pair(base_texts, target_texts, embedder)
         if matched:  # マッチが1つもなければ除外
+            combined = (1 - graph_weight) * text_score + graph_weight * graph_scores[i]
             results.append({
                 "source": candidate,
-                "score": score,
+                "score": combined,
                 "matched_relations": matched,
             })
 

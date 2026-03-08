@@ -11,7 +11,7 @@
 import sys
 import json
 
-from src.db import init_db, load_runs, load_run
+from src.db import init_db, load_runs, load_run, save_feedback, load_feedback_summary
 
 
 def show_history():
@@ -45,8 +45,66 @@ def show_run_detail(run_id: int):
         print(f"  [{idea['_origin_domain']}] {idea['idea']}")
 
 
+def rate_run(run_id: int, score: int, comment: str = ""):
+    """実行結果を評価する"""
+    init_db()
+    try:
+        fb_id = save_feedback(run_id, score, comment)
+        print(f"フィードバックを記録しました (ID: {fb_id}, Run: {run_id}, スコア: {score}/5)")
+        if comment:
+            print(f"  コメント: {comment}")
+    except ValueError as e:
+        print(f"エラー: {e}")
+        sys.exit(1)
+
+
+def show_insights():
+    """フィードバック統計を表示"""
+    init_db()
+    summary = load_feedback_summary()
+
+    if not summary["total_feedback"]:
+        print("フィードバックがまだありません。")
+        print("  使い方: python run.py --rate <run_id> <1-5> [コメント]")
+        return
+
+    print(f"フィードバック件数: {summary['total_feedback']}")
+    print(f"平均スコア: {summary['avg_score']}/5")
+
+    if summary["score_distribution"]:
+        print("\nスコア分布:")
+        for score in range(1, 6):
+            count = summary["score_distribution"].get(score, 0)
+            bar = "█" * count
+            print(f"  {score}: {bar} ({count})")
+
+    if summary["domain_stats"]:
+        print(f"\n{'ドメイン':<20} {'回数':>4} {'平均スコア':>8}")
+        print("-" * 36)
+        for d in summary["domain_stats"]:
+            print(f"  {d['domain']:<18} {d['run_count']:>4} {d['avg_score']:>8.1f}")
+
+
 def main():
     args = sys.argv[1:]
+
+    # --rate <run_id> <score> [comment]: 評価を記録
+    if "--rate" in args:
+        idx = args.index("--rate")
+        rate_args = args[idx + 1:]
+        if len(rate_args) < 2:
+            print("使い方: python run.py --rate <run_id> <1-5> [コメント]")
+            sys.exit(1)
+        run_id = int(rate_args[0])
+        score = int(rate_args[1])
+        comment = " ".join(rate_args[2:]) if len(rate_args) > 2 else ""
+        rate_run(run_id, score, comment)
+        return
+
+    # --insights: フィードバック統計
+    if "--insights" in args:
+        show_insights()
+        return
 
     # --history: 過去の実行一覧
     if "--history" in args:

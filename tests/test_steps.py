@@ -84,7 +84,7 @@ def test_step3_rank_analogies(sample_structure, sample_analogy_structure):
             return np.array([[0.9, 0.1, 0.0, 0.0]] * n, dtype=np.float32)
 
     mock_embedder.encode.side_effect = mock_encode
-    ranked = rank_analogies(sample_structure, [candidate_a, candidate_b], mock_embedder)
+    ranked = rank_analogies(sample_structure, [candidate_a, candidate_b], mock_embedder, graph_weight=0)
 
     assert len(ranked) == 2
     assert ranked[0]["score"] >= ranked[1]["score"]
@@ -99,7 +99,7 @@ def test_step3_filters_low_scores(sample_structure, sample_analogy_structure):
         return np.eye(max(n, 4), dtype=np.float32)[:n, :4]
 
     mock_embedder.encode.side_effect = mock_encode
-    ranked = rank_analogies(sample_structure, [sample_analogy_structure], mock_embedder)
+    ranked = rank_analogies(sample_structure, [sample_analogy_structure], mock_embedder, graph_weight=0)
     # 低スコアのため除外される可能性がある（閾値次第）
     assert isinstance(ranked, list)
 
