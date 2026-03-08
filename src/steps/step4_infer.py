@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
-from src.clients.llm_client import LLMClient
+if TYPE_CHECKING:
+    from src.clients.llm_client import LLMClient
 from src.models import Structure, ScoredAnalogy, CandidateInference
 
 SYSTEM_PROMPT = """\

@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import json
 
-from src.clients.llm_client import LLMClient
-from src.clients.embedding_client import EmbeddingClient
+from src.db import init_db, save_run
 from src.idea_bank import IdeaBank
 from src.steps.step1_extract import extract_structure
 from src.steps.step2_search import search_near, search_far
@@ -90,7 +89,7 @@ def run_pipeline(
     if verbose:
         print(json.dumps(proposal, ensure_ascii=False, indent=2))
 
-    return {
+    result = {
         "proposal": proposal,
         "idea_bank": bank,
         "steps": {
@@ -100,3 +99,15 @@ def run_pipeline(
             "inferences": all_inferences,
         },
     }
+
+    # SQLite永続化
+    try:
+        init_db()
+        run_id = save_run(result, challenge)
+        if verbose:
+            print(f"\n  [DB] 実行結果を保存しました (run_id={run_id})")
+    except Exception as e:
+        if verbose:
+            print(f"\n  [DB] 保存失敗（パイプライン結果には影響なし）: {e}")
+
+    return result

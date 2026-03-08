@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from src.clients.embedding_client import EmbeddingClient
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.clients.embedding_client import EmbeddingClient
 from src.models import Structure, ScoredAnalogy
 from src.config import SME_SCORE_THRESHOLD
 

@@ -30,6 +30,9 @@ Thumbs.db
 # Model cache
 models_cache/
 
+# SQLite data
+data/*.db
+
 # Claude Code local config
 .claude/
 .mcp.json

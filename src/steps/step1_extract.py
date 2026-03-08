@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from src.clients.llm_client import LLMClient
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.clients.llm_client import LLMClient
 from src.models import Structure
 
 SYSTEM_PROMPT = """\

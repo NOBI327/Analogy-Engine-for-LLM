@@ -4,8 +4,7 @@
 
 [![日本語](https://img.shields.io/badge/lang-ja-blue)](README_ja.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-26%20passed-brightgreen)]()
-[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-33%20passed-brightgreen)]()
 
 ---
 
@@ -76,6 +75,15 @@ python run.py                    # API key mode
 python run.py --claude-code      # Max plan mode
 # Type your problem at the prompt → Ctrl+D to submit
 ```
+
+### Viewing Past Results
+
+```bash
+python run.py --history          # List all past runs
+python run.py --history 3        # Show details of run ID 3
+```
+
+All pipeline results are automatically saved to SQLite (`data/runs.db`).
 
 ---
 
@@ -231,11 +239,12 @@ Traceability (source domain of each idea)
 
 ```
 .
-├── run.py                          # Entry point
+├── run.py                          # Entry point (--history for past results)
 ├── src/
 │   ├── config.py                   # Settings (env vars, thresholds)
 │   ├── models.py                   # Data structures (TypedDict)
 │   ├── pipeline.py                 # Pipeline orchestration
+│   ├── db.py                       # SQLite persistence (thin DAO)
 │   ├── idea_bank.py                # Idea Bank (origin stripping)
 │   ├── clients/
 │   │   ├── llm_client.py           # Claude API client (pay-per-token)
@@ -262,6 +271,7 @@ Traceability (source domain of each idea)
 |---|---|---|
 | LLM | Claude API / Claude Code CLI | Structure extraction, search, inference, planning |
 | Embeddings | sentence-transformers (paraphrase-multilingual-MiniLM-L12-v2) | Structural matching in Semantic SME |
+| Persistence | SQLite (WAL mode) | Auto-save all pipeline results for review and feedback loops |
 | Testing | pytest + DI (Dependency Injection) | Tests run without any external API calls |
 
 ---
@@ -301,8 +311,8 @@ DI (Dependency Injection) design means all tests run without connecting to Claud
 
 ## Roadmap
 
-- **Phase 1 (current)**: End-to-end pipeline construction and validation
-- **Phase 2**: GNN-based structural similarity for higher precision, Hungarian algorithm for exclusive matching
+- **Phase 1** (done): End-to-end pipeline construction and validation
+- **Phase 2** (in progress): Hungarian algorithm for exclusive matching (done), SQLite persistence (done), GNN-based structural similarity, A/B testing, feedback loops
 - **Phase 3**: Integration with emotion memory system, external publication
 
 ---
