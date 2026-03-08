@@ -151,8 +151,10 @@ def main():
     print(f"\n課題: {challenge}")
     print("パイプラインを実行中...\n")
 
+    from src.clients.memory_client import create_memory_client
     embedder = EmbeddingClient()
-    result = run_pipeline(challenge, llm, embedder, verbose=True)
+    memory = create_memory_client()
+    result = run_pipeline(challenge, llm, embedder, verbose=True, memory=memory)
 
     print("\n" + "=" * 60)
     print("最終提案")

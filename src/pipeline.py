@@ -18,6 +18,7 @@ def run_pipeline(
     llm: LLMClient,
     embedder: EmbeddingClient,
     verbose: bool = False,
+    memory: MemoryClient | None = None,
 ) -> dict:
     """パイプライン全体を実行
 
@@ -26,6 +27,7 @@ def run_pipeline(
         llm: LLMClient（DI）
         embedder: EmbeddingClient（DI）
         verbose: 中間結果を表示するか
+        memory: MemoryClient（DI、Noneならメモリなしで動作）
 
     Returns:
         {
@@ -45,6 +47,23 @@ def run_pipeline(
     structure = extract_structure(challenge, llm)
     if verbose:
         print(json.dumps(structure, ensure_ascii=False, indent=2))
+
+    # 感情メモリ: 過去の関連記憶を想起
+    recalled_memories: list[dict] = []
+    if memory:
+        try:
+            recalled_memories = memory.recall(
+                challenge,
+                emotions={"importance": 0.8, "anticipation": 0.6},
+                top_n=3,
+            )
+            if verbose and recalled_memories:
+                log("Memory", f"過去の記憶を{len(recalled_memories)}件想起")
+                for m in recalled_memories:
+                    print(f"  [{m['score']:.2f}] {m['content'][:80]}")
+        except Exception as e:
+            if verbose:
+                print(f"  [Memory] 想起失敗（パイプラインには影響なし）: {e}")
 
     # Step 2: 類似構造探索
     from src.config import NEAR_COUNT, FAR_COUNT
@@ -87,7 +106,14 @@ def run_pipeline(
     if verbose:
         print("  最終提案を構成中...")
     ideas_stripped = bank.get_ideas_stripped()
-    proposal = cross_plan(challenge, ideas_stripped, llm)
+
+    # 想起した記憶があればコンテキストとして追加
+    memory_context = ""
+    if recalled_memories:
+        memory_hints = "\n".join(f"- {m['content']}" for m in recalled_memories)
+        memory_context = f"\n\n## 過去の関連経験\n{memory_hints}"
+
+    proposal = cross_plan(challenge + memory_context, ideas_stripped, llm)
     if verbose:
         print(json.dumps(proposal, ensure_ascii=False, indent=2))
 
@@ -111,5 +137,29 @@ def run_pipeline(
     except Exception as e:
         if verbose:
             print(f"\n  [DB] 保存失敗（パイプライン結果には影響なし）: {e}")
+
+    # 感情メモリに実行結果を保存
+    if memory:
+        try:
+            domains = [r["source"]["domain"] for r in ranked]
+            memory_text = (
+                f"課題「{challenge}」に対し、{', '.join(domains[:3])}等のアナロジーから "
+                f"「{proposal['summary'][:100]}」を提案。"
+            )
+            memory.store(
+                text=memory_text,
+                emotions={
+                    "trust": 0.6,
+                    "anticipation": 0.7,
+                    "importance": 0.8,
+                },
+                scenes=["work", "learning"],
+                context=challenge,
+            )
+            if verbose:
+                print(f"  [Memory] 実行結果を感情メモリに保存しました")
+        except Exception as e:
+            if verbose:
+                print(f"  [Memory] 保存失敗（パイプライン結果には影響なし）: {e}")
 
     return result
