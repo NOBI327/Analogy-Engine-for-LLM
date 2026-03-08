@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 
 
@@ -56,14 +57,40 @@ class ClaudeCodeClient:
         print(f"  [claude CLI] 応答受信完了", flush=True)
         return result.stdout.strip()
 
-    def ask_json(self, prompt: str, system: str = "") -> dict | list:
-        """JSON応答をパースして返す"""
-        raw = self.ask(prompt, system)
+    def ask_json(self, prompt: str, system: str = "", max_retries: int = 2) -> dict | list:
+        """JSON応答をパースして返す（リトライ付き）"""
+        last_error = None
+        for attempt in range(max_retries + 1):
+            if attempt > 0:
+                print(f"  [claude CLI] JSONパース失敗、リトライ {attempt}/{max_retries}...", flush=True)
+            raw = self.ask(prompt, system)
+            text = self._extract_json(raw)
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError as e:
+                last_error = e
+        raise RuntimeError(
+            f"JSONパースに{max_retries + 1}回失敗しました: {last_error}\n応答テキスト: {raw[:500]}"
+        )
+
+    @staticmethod
+    def _extract_json(raw: str) -> str:
+        """LLM応答からJSON部分を抽出する"""
         text = raw.strip()
+        # コードブロックを除去
         if text.startswith("```"):
             lines = text.split("\n")
             lines = lines[1:]
             if lines and lines[-1].strip() == "```":
                 lines = lines[:-1]
             text = "\n".join(lines)
-        return json.loads(text)
+        # それでもパースできない場合、最初の [ or { から最後の ] or } を抽出
+        try:
+            json.loads(text)
+            return text
+        except json.JSONDecodeError:
+            pass
+        match = re.search(r'(\[[\s\S]*\]|\{[\s\S]*\})', text)
+        if match:
+            return match.group(1)
+        return text

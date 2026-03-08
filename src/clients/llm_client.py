@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+
 import anthropic
 
 from src.config import ANTHROPIC_API_KEY, LLM_MODEL
@@ -24,15 +26,38 @@ class LLMClient:
         response = self._client.messages.create(**kwargs)
         return response.content[0].text
 
-    def ask_json(self, prompt: str, system: str = "") -> dict | list:
-        """JSON応答をパースして返す。パース失敗時は例外"""
-        raw = self.ask(prompt, system)
-        # コードブロックで囲まれている場合を処理
+    def ask_json(self, prompt: str, system: str = "", max_retries: int = 2) -> dict | list:
+        """JSON応答をパースして返す（リトライ付き）"""
+        last_error = None
+        for attempt in range(max_retries + 1):
+            if attempt > 0:
+                print(f"  [LLM] JSONパース失敗、リトライ {attempt}/{max_retries}...", flush=True)
+            raw = self.ask(prompt, system)
+            text = self._extract_json(raw)
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError as e:
+                last_error = e
+        raise RuntimeError(
+            f"JSONパースに{max_retries + 1}回失敗しました: {last_error}\n応答テキスト: {raw[:500]}"
+        )
+
+    @staticmethod
+    def _extract_json(raw: str) -> str:
+        """LLM応答からJSON部分を抽出する"""
         text = raw.strip()
         if text.startswith("```"):
             lines = text.split("\n")
-            lines = lines[1:]  # ```json を除去
+            lines = lines[1:]
             if lines and lines[-1].strip() == "```":
                 lines = lines[:-1]
             text = "\n".join(lines)
-        return json.loads(text)
+        try:
+            json.loads(text)
+            return text
+        except json.JSONDecodeError:
+            pass
+        match = re.search(r'(\[[\s\S]*\]|\{[\s\S]*\})', text)
+        if match:
+            return match.group(1)
+        return text
